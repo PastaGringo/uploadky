@@ -1,129 +1,177 @@
-[![Pubky](https://img.shields.io/badge/Pubky-0.11.0-blue)](https://www.npmjs.com/package/@synonymdev/pubky/v/0.11.0)
-
 # uploadky
 
-Partager un fichier comme avec Gofile, mais **le fichier reste chez vous**.
+**Send a file. Keep it yours.**
 
-On se connecte avec Pubky Ring, on dépose un fichier, on obtient un lien public
-que n'importe qui peut ouvrir. Le fichier est écrit sur **votre propre
-homeserver** — uploadky ne stocke rien et ne transporte aucun octet.
+Drop a file, get a link, share it. The difference: the file never touches our
+servers. It goes straight to **your own [Pubky](https://pubky.org) homeserver**,
+and the link points there. We hold no copy, and we can't.
 
-Dérivé de [`pubky-app-templates/basic-pubky-app`](https://github.com/pubky/pubky-app-templates).
+Live at **[uploadky.delvops.fr](https://uploadky.delvops.fr)** · MIT licensed
 
-## Le principe
+<!-- Screenshots: landing page, download page, mobile. -->
+
+---
+
+## How it works
 
 | | |
 |---|---|
-| **Dépôt** | Session Pubky, capacité limitée à `/pub/uploadky.app/:rw` |
-| **Stockage** | Le homeserver de l'utilisateur, jamais le nôtre |
-| **Partage** | `/pub/` est en **lecture publique sans authentification** |
-| **Sortie** | Les fichiers suivent la clé : on change de homeserver sans rien perdre |
+| **Sign in** | Pubky Ring. No account here, no password, no email. |
+| **Storage** | Your homeserver. uploadky is granted one folder and reaches nothing else. |
+| **Sharing** | `/pub/` is world-readable, so anyone with the link can open it — no account needed. |
+| **Leaving** | Your identity is a key, not a row in a database. Change homeserver and your files follow. |
 
-L'application ne demande qu'**une seule capacité**. L'utilisateur accorde
-l'accès à un dossier et rien d'autre, et peut la révoquer depuis Pubky Ring.
-Vérifié à l'usage : une session portant `/pub/locks.app/:rw` s'est vu refuser
-toute écriture hors de ce préfixe.
-
-## Disposition sur le homeserver
+### Two capabilities, and no more
 
 ```
-/pub/uploadky.app/files/<id>        les octets bruts
-/pub/uploadky.app/meta/<id>.json    nom d'origine, type MIME, taille, date
+/pub/uploadky.app/       its own folder, where your files go
+/pub/pubky.app/posts/    only used when you press "Share on pubky.app"
 ```
 
-Le descripteur est nécessaire parce que `putBytes` ne transporte ni nom de
-fichier ni type MIME. Il est public lui aussi — c'est voulu, la page de
-téléchargement en a besoin.
+The second is deliberately scoped to `posts/` rather than `pubky.app/`, so
+uploadky can never touch your profile, follows, tags or bookmarks. Both are
+revocable from Pubky Ring at any time.
 
-## Le lien de partage
+### Storage layout
 
 ```
-https://homeserver.pubky.app/pub/uploadky.app/files/<id>?pubky-host=<clé>
+/pub/uploadky.app/files/<id>        the raw bytes
+/pub/uploadky.app/meta/<id>.json    original name, MIME type, size, date
 ```
 
-Le SDK n'offre **aucun assistant** pour cela : `PubkyResource.toPubkyUrl()` ne
-rend qu'un `pubky://`, qu'aucun navigateur ne sait ouvrir. L'URL est donc
-construite à la main dans `src/storage.ts`.
+The sidecar exists because the homeserver stores bytes and nothing else:
+`putBytes` carries neither a filename nor a content type. Without it, a
+download would arrive named after an opaque id.
 
-> ⚠️ **Pourquoi le paramètre d'URL et non `/storage/<clé>/…`**
+---
+
+## Share links
+
+```
+https://<your instance>/<user-key>/<file-id>
+```
+
+This opens a **page** showing the file's name, size and date, with a download
+button — not the raw bytes. A visitor sees what they are about to get.
+
+`\/raw/<user-key>/<file-id>` still 302-redirects straight to the bytes, for
+embedding and for clients without JavaScript.
+
+Either way the server carries **no file bytes**: the browser fetches from the
+homeserver directly.
+
+> **Why `?pubky-host=` and not `/storage/<key>/…`**
 >
-> Le homeserver officiel n'a pas encore migré vers l'adressage par chemin :
-> `/storage/<clé>/pub/…` y répond **HTTP 500** (`Can't extract PubkyHost`).
-> Seule la forme `?pubky-host=` fonctionne, et c'est la seule qu'un navigateur
-> peut ouvrir sans en-tête personnalisé.
+> The official homeserver has not migrated to path addressing:
+> `/storage/<key>/pub/…` answers **HTTP 500** (`Can't extract PubkyHost`). The
+> query-parameter form is the only one a browser can open without setting a
+> custom header.
 >
-> Mesuré le 2026-09-05 contre `homeserver.pubky.app` :
-> utilisateur réel → `200` · clé inexistante → `404` · fichier absent → `404`.
+> Measured 2026-09-05 against `homeserver.pubky.app`: real user → `200`,
+> unknown key → `404`, missing file → `404`.
 >
-> La migration amont impose **un an de préavis minimum** à partir de la
-> publication du premier SDK stable en adressage par chemin — non publié à ce
-> jour. Le risque est donc lointain, mais la construction de l'URL est isolée
-> dans une seule fonction pour que la bascule tienne en une ligne.
+> Upstream commits to a one-year minimum notice before removing the legacy
+> form, so this is not urgent — and the URL is built in a single function, so
+> switching is a one-line change.
 
-## Authentification : deux formats, et le récent ne passe pas
+---
 
-Le SDK 0.11 sait produire deux URL d'autorisation :
+## Authentication: two wire formats
 
-| Format | URL | État sur le terrain |
+The SDK can produce two authorization URLs, and Pubky Ring builds differ in
+what they accept.
+
+| Format | URL | Status in the field |
 |---|---|---|
-| grant | `pubkyauth://signin_grant?…&cid=…&cpk=…` | **Rejeté** par le Pubky Ring publié |
-| cookie | `pubkyauth://signin?relay=…&caps=…&secret=…` | Fonctionne |
+| grant | `pubkyauth://signin_grant?…&cid=…&cpk=…` | **Rejected** by shipping Pubky Ring |
+| cookie | `pubkyauth://signin?relay=…&caps=…&secret=…` | Works |
 
-Mesuré le 2026-09-05 sur un Ring réel : le QR `signin_grant` est refusé avec
-*« Unrecognized format. Expected a recovery phrase, invite code, auth URL, or
-session request. »*
+Measured against a real Ring: the `signin_grant` QR is refused with
+*"Unrecognized format. Expected a recovery phrase, invite code, auth URL, or
+session request."*
 
-**Le piège est que l'échec est invisible côté application** : il se produit sur
-le téléphone, aucune erreur ne remonte, et un nouvel utilisateur voit
-simplement un QR qui ne fait rien. D'où le format `cookie` par défaut, et un
-sélecteur sous le QR pour repasser en `grant`.
+**The trap is that this failure is invisible to the app** — it happens on the
+phone, no error reaches the page, and a first-time user just sees a QR code
+that does nothing. Hence `cookie` as the default, and a switch under the QR
+that says so in plain words.
 
-À rebasculer dès que Ring saura lire `signin_grant` — le modèle grant est
-supérieur (clé déléguée non extractible, révocable, cloisonnée par application).
+Flip it back once Ring ships grant support: it is the better model
+(non-extractable delegated key, revocable, scoped per app).
 
-### Conséquence : la session ne survit pas au rechargement
+### Sessions do not survive a reload
 
-`BrowserSessionStore` n'accepte **que** les sessions adossées à un grant. Une
-session par cookie ne peut donc pas y être conservée.
+`BrowserSessionStore` accepts **grant-backed sessions only**, so a cookie
+session cannot be stored in it.
 
-Le contournement facile serait d'écrire `session.export()` dans le
-`localStorage` — mais c'est un **secret porteur**, lisible par n'importe quelle
-faille XSS, précisément ce que le modèle grant existe pour empêcher. Ce n'est
-pas fait. En protocole historique, la session vit le temps de la page, et
-l'application le dit à l'utilisateur.
+The easy workaround would be writing `session.export()` into `localStorage` —
+but that is a **bearer secret**, readable by any XSS, which is precisely what
+the grant model exists to prevent. So it is not done. On the legacy protocol
+the session lives for the page's lifetime, and the app says so.
 
-## Limites connues
+---
 
-- **100 Mo par fichier.** Plafond du homeserver, mesuré dans son routeur
-  (`DefaultBodyLimit::max(100 * 1024 * 1024)`). Le découpage en morceaux n'est
-  pas implémenté ; un fichier plus gros est refusé avec un message clair.
-- **Quota côté homeserver.** Fixé par l'opérateur. Un dépassement rend
-  `507 Insufficient Storage`.
-- **Domaine du homeserver figé.** `HOMESERVER_HTTP_BASE` vaut par défaut
-  `https://homeserver.pubky.app`. Un utilisateur hébergé ailleurs aura un lien
-  faux. Résoudre le domaine ICANN depuis l'enregistrement pkarr n'est pas
-  exposé par le SDK JS.
-- **Pas de dépôt anonyme.** Il faut une identité Pubky. C'est la friction
-  majeure face à Gofile, et le sujet de la prochaine étape.
+## Deploying
 
-## Démarrer
+One image, configured entirely at **runtime**. Vite inlines `VITE_*` at build
+time, so a value set in a container's `environment:` would never reach an
+already-built bundle. The server therefore writes `/config.json` from its env
+vars, and the app reads it before rendering.
+
+```bash
+cp .env.example .env   # then adjust
+docker compose up -d --build
+```
+
+No domain is baked in anywhere. A configuration change needs a `restart`, never
+a rebuild.
+
+### The server
+
+`server/index.ts` does three things and no more:
+
+| Route | Purpose |
+|---|---|
+| `GET /config.json` | Settings, from the environment |
+| `GET /raw/<key>/<id>` | **302** to the file on the homeserver |
+| everything else | The built app |
+
+> **Security note.** The key is validated against the 52-character z-base32
+> alphabet before any `Location` is built. Without that check,
+> `/raw/<anything>/<anything>` would make this an **open redirect** usable for
+> phishing from your own domain. Verified: a valid key returns `302`,
+> `evil.example.com` returns `404`.
+
+---
+
+## Known limits
+
+- **100 MB per file.** A homeserver ceiling, measured in its storage router
+  (`DefaultBodyLimit::max(100 * 1024 * 1024)`). Chunking is not implemented; a
+  larger file is refused with a clear message rather than a raw `413`.
+- **Files are public.** Anyone with the link can read them. The link is
+  unguessable, but it is not a password. There is no per-file password:
+  anything short of encrypting in the browser would be theatre, since the
+  direct homeserver URL bypasses any check the app could make.
+- **Homeserver quota** is set by whoever runs it. Exceeding it returns `507`.
+- **One homeserver domain per instance.** `homeserverHttpBase` is a single
+  setting; a user hosted elsewhere would get a wrong link. Resolving the ICANN
+  domain from the pkarr record is not exposed by the JS SDK.
+- **No anonymous upload yet.** A Pubky identity is required, which is real
+  friction compared with the file-sending sites people already use.
+
+---
+
+## Development
 
 ```bash
 bun install
 bun run dev
 ```
 
-Réseau réel par défaut. Pour viser un testnet local :
+`bun run build` runs `tsc` then bundles. The typecheck was exercised with a
+deliberate error before being trusted: it reports two errors with the probe in
+place and none without. A check that has never been seen to fail proves
+nothing.
 
-```bash
-VITE_PUBKY_TESTNET=true \
-VITE_PUBKY_TESTNET_HOST=127.0.0.1 \
-VITE_HOMESERVER_HTTP_BASE=http://127.0.0.1:6286 \
-bun run dev
-```
-
-## Vérification
-
-`bun run build` enchaîne `tsc` puis le bundle. Le typecheck a été éprouvé par
-une erreur volontaire : il rend bien deux erreurs avec la sonde et rien sans.
-Un contrôle qui ne sait pas échouer ne prouve rien.
+Derived from
+[`pubky-app-templates/basic-pubky-app`](https://github.com/pubky/pubky-app-templates).
