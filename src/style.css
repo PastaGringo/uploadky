@@ -1,0 +1,791 @@
+/* ==========================================================================
+   uploadky — a darkroom for files.
+
+   TYPOGRAPHY RULES, kept deliberately tight:
+
+   1. Six sizes, no others. Anything that needs a seventh is a design mistake.
+   2. Monospace is for MACHINE STRINGS only — public keys, storage paths, byte
+      counts, timestamps. Never for prose, never for a caption. A sentence set
+      in mono next to a sentence set in sans reads as noise, not hierarchy.
+   3. Two text weights on a ground: full, and muted. Not four.
+   4. Fraunces (display) is for the brand and section titles only. Its stroke
+      contrast is the point: a uniform-weight grotesque at this size reads flat.
+
+   The background is not decoration: it is drawn from the signed-in public key,
+   so an identity has a face. See background.ts.
+   ========================================================================== */
+
+:root {
+  --ink: #06181a;
+  --ink-3: #113034;
+  --paper: #f2efe9;
+  --paper-ink: #14211f;
+  --paper-mute: #5f6d6a;
+
+  --amber: #ffa62b;
+  --amber-deep: #a8630a;
+  --amber-wash: rgba(255, 166, 43, 0.12);
+
+  --good: #2f9e6b;
+
+  /* Text on the dark ground: two levels, that is all. */
+  --on-dark: #f2efe9;
+  --on-dark-mute: rgba(242, 239, 233, 0.66);
+
+  --edge: rgba(20, 33, 31, 0.14);
+  --edge-strong: rgba(20, 33, 31, 0.3);
+
+  /* The scale. */
+  --t-display: clamp(2.5rem, 6vw, 4.5rem);
+  --t-brand: 1.35rem;
+  /* Lede paragraph and card titles share one step: same optical weight,
+     different faces. */
+  --t-lead: 1.08rem;
+  --t-body: 0.95rem;
+  --t-small: 0.85rem;
+  --t-micro: 0.75rem; /* monospace machine strings only */
+
+  --r-lg: 20px;
+  --r-md: 12px;
+  --r-sm: 8px;
+
+  --shadow-card: 0 1px 0 rgba(255, 255, 255, 0.5) inset,
+    0 24px 60px -24px rgba(0, 0, 0, 0.65), 0 4px 14px -8px rgba(0, 0, 0, 0.5);
+
+  --font-display: "Fraunces", "Iowan Old Style", Georgia, serif;
+  --font-body: "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--ink);
+  color: var(--on-dark);
+  font-family: var(--font-body);
+  font-size: var(--t-body);
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+}
+
+/* The one place monospace is allowed: a machine string. */
+code,
+.mono {
+  font-family: var(--font-mono);
+  font-size: var(--t-micro);
+  font-weight: 400;
+}
+
+#keyfield {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 0;
+  display: block;
+}
+
+body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  background: radial-gradient(
+    120% 90% at 22% 45%,
+    transparent 0%,
+    rgba(6, 24, 26, 0.55) 60%,
+    rgba(6, 24, 26, 0.88) 100%
+  );
+}
+
+#app {
+  position: relative;
+  z-index: 2;
+  min-height: 100%;
+}
+
+/* ---------------------------------------------------------------- layout */
+
+.shell {
+  display: grid;
+  grid-template-columns: minmax(0, 470px) minmax(0, 1fr);
+  align-items: center;
+  gap: clamp(2rem, 6vw, 5.5rem);
+  max-width: 1240px;
+  min-height: 100vh;
+  margin: 0 auto;
+  padding: clamp(1.5rem, 4vw, 3.5rem);
+}
+
+.shell.solo {
+  grid-template-columns: minmax(0, 560px);
+  justify-content: center;
+}
+
+@media (max-width: 940px) {
+  .shell,
+  .shell.solo {
+    grid-template-columns: minmax(0, 1fr);
+    align-items: start;
+    gap: 2.5rem;
+    min-height: 0;
+    padding-top: 2rem;
+    padding-bottom: 3rem;
+  }
+}
+
+/* ------------------------------------------------------------------ card */
+
+.card {
+  background: var(--paper);
+  color: var(--paper-ink);
+  border-radius: var(--r-lg);
+  padding: clamp(1.4rem, 2.6vw, 1.9rem);
+  box-shadow: var(--shadow-card);
+  animation: rise 700ms 160ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+}
+
+/* One orchestrated page load. Every delay below is part of the same
+   left-to-right, top-to-bottom reading order — not scattered effects. */
+.brand,
+.pitch h2 .line,
+.lede,
+.points li,
+.pitch-foot {
+  animation: rise 700ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.brand { animation-delay: 40ms; }
+.pitch h2 .line:nth-child(1) { animation-delay: 120ms; }
+.pitch h2 .line:nth-child(2) { animation-delay: 200ms; }
+.lede { animation-delay: 300ms; }
+.points li:nth-child(1) { animation-delay: 380ms; }
+.points li:nth-child(2) { animation-delay: 440ms; }
+.points li:nth-child(3) { animation-delay: 500ms; }
+.points li:nth-child(4) { animation-delay: 560ms; }
+.pitch-foot { animation-delay: 640ms; }
+
+.card-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+}
+
+.card-head h2 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: var(--t-lead);
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+/* -------------------------------------------------------------- branding */
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin-bottom: 1.5rem;
+}
+
+.brand-mark {
+  width: 30px;
+  height: 30px;
+  flex: none;
+}
+
+.brand h1 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: var(--t-brand);
+  font-weight: 800;
+  font-variation-settings: "opsz" 72, "SOFT" 12, "WONK" 1;
+  letter-spacing: -0.015em;
+  color: var(--on-dark);
+}
+
+/* ----------------------------------------------------------------- pitch */
+
+.pitch h2 {
+  margin: 0 0 1.1rem;
+  font-family: var(--font-display);
+  font-size: var(--t-display);
+  font-weight: 900;
+  /* opsz at the display end sharpens the thin strokes; WONK swaps in the
+     characterful alternates. This is where the contrast comes from. */
+  font-variation-settings: "opsz" 144, "SOFT" 12, "WONK" 1;
+  line-height: 0.94;
+  letter-spacing: -0.03em;
+}
+
+/* The two halves are separate blocks so they can enter one after the other,
+   and so the break never depends on the viewport guessing right. */
+.pitch h2 .line {
+  display: block;
+}
+
+.pitch h2 em {
+  font-style: normal;
+  color: var(--amber);
+}
+
+.lede {
+  max-width: 40ch;
+  margin: 0 0 2rem;
+  color: var(--on-dark-mute);
+  font-size: var(--t-lead);
+  line-height: 1.5;
+  text-wrap: pretty;
+}
+
+.points {
+  display: grid;
+  gap: 1.05rem;
+  max-width: 44ch;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.points li {
+  display: grid;
+  grid-template-columns: 1.15rem minmax(0, 1fr);
+  gap: 0.75rem;
+  color: var(--on-dark-mute);
+  font-size: var(--t-small);
+}
+
+.points strong {
+  display: block;
+  margin-bottom: 0.1rem;
+  color: var(--on-dark);
+  font-size: var(--t-body);
+  font-weight: 600;
+}
+
+.points code {
+  color: var(--on-dark);
+}
+
+.points svg {
+  margin-top: 0.3rem;
+  color: var(--amber);
+}
+
+/* The honest caveat. Set apart by its rule and its icon colour, not by a
+   louder size — it is a caution, not an alarm. */
+.points li.caution {
+  margin-top: 0.2rem;
+  padding-top: 1rem;
+  border-top: 1px solid rgba(242, 239, 233, 0.1);
+}
+
+.points li.caution svg {
+  color: var(--on-dark-mute);
+}
+
+/* A footer, not a stray fifth bullet: its own band, set off by a hairline.
+   The warning it used to carry moved into the list, where it can be seen. */
+.pitch-foot {
+  margin: 2rem 0 0;
+  padding-top: 1.1rem;
+  border-top: 1px solid rgba(242, 239, 233, 0.14);
+  color: var(--on-dark-mute);
+  font-size: var(--t-small);
+}
+
+.pitch-foot a {
+  color: var(--on-dark);
+  text-decoration-color: var(--amber);
+  text-underline-offset: 3px;
+}
+
+/* -------------------------------------------------------------- controls */
+
+button {
+  font: inherit;
+  cursor: pointer;
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  padding: 0.6rem 1rem;
+  border: 1px solid var(--edge-strong);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--paper-ink);
+  font-size: var(--t-small);
+  font-weight: 500;
+  text-decoration: none;
+  transition: background-color 140ms ease, border-color 140ms ease, transform 140ms ease;
+}
+
+.btn:hover:not(:disabled):not([aria-disabled="true"]) {
+  background: rgba(20, 33, 31, 0.06);
+  border-color: var(--paper-ink);
+}
+
+.btn:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+.btn:disabled,
+.btn[aria-disabled="true"] {
+  opacity: 0.42;
+  cursor: not-allowed;
+}
+
+.btn.primary {
+  background: var(--paper-ink);
+  border-color: var(--paper-ink);
+  color: var(--paper);
+}
+
+.btn.primary:hover:not([aria-disabled="true"]) {
+  background: #000;
+  border-color: #000;
+}
+
+.btn.amber {
+  background: var(--amber);
+  border-color: var(--amber);
+  color: #2b1600;
+  font-weight: 600;
+}
+
+.btn.amber:hover:not(:disabled) {
+  background: #ffb54f;
+  border-color: #ffb54f;
+}
+
+.btn.ghost {
+  padding: 0.35rem 0.6rem;
+  border-color: transparent;
+  color: var(--paper-mute);
+}
+
+.btn.ghost:hover:not(:disabled) {
+  color: var(--paper-ink);
+  background: rgba(20, 33, 31, 0.06);
+}
+
+.btn.icon {
+  padding: 0.42rem;
+  border-radius: 9px;
+  border-color: transparent;
+  color: var(--paper-mute);
+}
+
+.btn.icon:hover:not(:disabled) {
+  color: var(--paper-ink);
+  background: rgba(20, 33, 31, 0.08);
+}
+
+.btn.icon.is-done {
+  color: var(--good);
+}
+
+.link-button {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+:focus-visible {
+  outline: 2px solid var(--amber);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* -------------------------------------------------------------- dropzone */
+
+.dropzone {
+  display: grid;
+  place-content: center;
+  gap: 0.3rem;
+  padding: 2.6rem 1.25rem;
+  border: 1.5px dashed var(--edge-strong);
+  border-radius: var(--r-md);
+  background: rgba(20, 33, 31, 0.025);
+  text-align: center;
+  cursor: pointer;
+  transition: border-color 140ms ease, background-color 140ms ease, transform 140ms ease;
+}
+
+.dropzone:hover {
+  border-color: var(--paper-ink);
+  background: rgba(20, 33, 31, 0.05);
+}
+
+.dropzone.is-over {
+  border-color: var(--amber-deep);
+  background: var(--amber-wash);
+  transform: scale(1.008);
+}
+
+.dropzone-icon {
+  justify-self: center;
+  margin-bottom: 0.3rem;
+  color: var(--paper-mute);
+}
+
+.dropzone.is-over .dropzone-icon {
+  color: var(--amber-deep);
+}
+
+.dropzone-main {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: var(--t-lead);
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.dropzone-sub {
+  margin: 0;
+  color: var(--paper-mute);
+  font-size: var(--t-small);
+}
+
+/* ------------------------------------------------------------------ list */
+
+.file-list {
+  display: grid;
+  gap: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.file-list li {
+  display: grid;
+  grid-template-columns: 2rem minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.7rem;
+  padding: 0.7rem 0.15rem;
+  border-top: 1px solid var(--edge);
+}
+
+.file-list li:first-child {
+  border-top: 0;
+}
+
+.file-kind {
+  display: grid;
+  place-items: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: var(--r-sm);
+  background: rgba(20, 33, 31, 0.06);
+  color: var(--paper-mute);
+}
+
+.file-main {
+  min-width: 0;
+}
+
+.file-main strong {
+  display: block;
+  overflow: hidden;
+  font-size: var(--t-body);
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* A size and a date are machine strings: mono earns its place here. */
+.file-meta {
+  display: block;
+  color: var(--paper-mute);
+  font-family: var(--font-mono);
+  font-size: var(--t-micro);
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 0.15rem;
+}
+
+/* Signed-in footer: a way back to the project, kept quiet. */
+.card-foot {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin: 1.2rem 0 0;
+  padding-top: 0.9rem;
+  border-top: 1px solid var(--edge);
+  color: var(--paper-mute);
+  font-size: var(--t-small);
+}
+
+.card-foot svg {
+  flex: none;
+}
+
+.card-foot a {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  color: var(--paper-ink);
+  text-decoration-color: var(--amber);
+  text-underline-offset: 3px;
+}
+
+.empty {
+  margin: 1.1rem 0 0.2rem;
+  color: var(--paper-mute);
+  font-size: var(--t-small);
+  text-align: center;
+}
+
+/* ------------------------------------------------------------------- QR */
+
+.ring {
+  display: grid;
+  justify-items: center;
+  gap: 1rem;
+}
+
+.qr-frame {
+  display: grid;
+  place-items: center;
+  width: 236px;
+  height: 236px;
+  padding: 8px;
+  border-radius: var(--r-md);
+  background: #fff;
+  box-shadow: 0 0 0 1px var(--edge);
+}
+
+.ring-qr {
+  display: block;
+  width: 220px;
+  height: 220px;
+}
+
+.qr-placeholder {
+  display: grid;
+  place-items: center;
+  gap: 0.5rem;
+  color: var(--paper-mute);
+  font-size: var(--t-small);
+  text-align: center;
+}
+
+.spinner {
+  width: 1.6rem;
+  height: 1.6rem;
+  border: 2px solid var(--edge);
+  border-top-color: var(--paper-ink);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.ring-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.5rem;
+  width: 100%;
+}
+
+.auth-mode {
+  margin: 1rem 0 0;
+  color: var(--paper-mute);
+  font-size: var(--t-small);
+  text-align: center;
+}
+
+.scope-note {
+  display: grid;
+  gap: 0.35rem;
+  margin: 1.1rem 0 0;
+  padding: 0.8rem 0.9rem;
+  border-radius: var(--r-sm);
+  background: rgba(20, 33, 31, 0.045);
+  color: var(--paper-mute);
+  font-size: var(--t-small);
+}
+
+.scope-note code {
+  color: var(--paper-ink);
+}
+
+/* ---------------------------------------------------------------- status */
+
+.status {
+  margin: 0 0 1rem;
+  padding: 0.7rem 0.9rem;
+  border-radius: var(--r-sm);
+  background: rgba(242, 239, 233, 0.08);
+  color: var(--on-dark);
+  font-size: var(--t-small);
+}
+
+.card .status {
+  background: rgba(20, 33, 31, 0.05);
+  color: var(--paper-ink);
+}
+
+.status.error {
+  background: rgba(217, 83, 74, 0.16);
+  color: #ffb3ac;
+}
+
+.status em {
+  color: var(--on-dark-mute);
+  font-family: var(--font-mono);
+  font-size: var(--t-micro);
+  font-style: normal;
+}
+
+.progress {
+  margin: 0.75rem 0 0;
+  color: var(--paper-mute);
+  font-size: var(--t-small);
+}
+
+/* ------------------------------------------------------------------ user */
+
+.user-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 1.1rem;
+  padding-bottom: 0.9rem;
+  border-bottom: 1px solid var(--edge);
+}
+
+/* A public key is the machine string par excellence. */
+.pubky-id {
+  min-width: 0;
+  margin: 0;
+  overflow: hidden;
+  color: var(--paper-mute);
+  font-family: var(--font-mono);
+  font-size: var(--t-micro);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ----------------------------------------------------------------- forms */
+
+.form-grid {
+  display: grid;
+  gap: 0.7rem;
+}
+
+label {
+  display: grid;
+  gap: 0.3rem;
+  font-size: var(--t-small);
+  font-weight: 500;
+}
+
+input,
+textarea {
+  width: 100%;
+  padding: 0.55rem 0.7rem;
+  border: 1px solid var(--edge-strong);
+  border-radius: var(--r-sm);
+  background: #fff;
+  color: var(--paper-ink);
+  font-family: var(--font-body);
+  font-size: var(--t-body);
+}
+
+textarea {
+  resize: vertical;
+}
+
+.muted {
+  color: var(--paper-mute);
+  font-size: var(--t-small);
+}
+
+/* ----------------------------------------------------------------- sheet */
+
+dialog.sheet {
+  width: min(92vw, 440px);
+  padding: 0;
+  border: 0;
+  border-radius: var(--r-lg);
+  background: var(--paper);
+  color: var(--paper-ink);
+  box-shadow: var(--shadow-card);
+}
+
+dialog.sheet::backdrop {
+  background: rgba(3, 12, 13, 0.66);
+  backdrop-filter: blur(3px);
+}
+
+.sheet-body {
+  display: grid;
+  gap: 0.7rem;
+  padding: 1.4rem;
+}
+
+.sheet-body h2 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: var(--t-lead);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.sheet-body > p {
+  margin: 0;
+}
+
+.sheet-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  margin-top: 0.3rem;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}

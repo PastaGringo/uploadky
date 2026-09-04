@@ -1,0 +1,28 @@
+# uploadky — one image, configured entirely at runtime.
+#
+# No domain is baked in anywhere. Point a reverse proxy at this service and
+# set UPLOADKY_SHARE_BASE to whatever public origin it answers on; leave it
+# empty and share links simply point straight at the homeserver instead.
+
+services:
+  uploadky:
+    build: .
+    restart: unless-stopped
+    environment:
+      # Where the files actually live. The only value the redirect needs.
+      UPLOADKY_HOMESERVER_HTTP_BASE: ${UPLOADKY_HOMESERVER_HTTP_BASE:-https://homeserver.pubky.app}
+
+      # Public origin of THIS service, used to build short share links.
+      # Empty = no short links. Set it to your own hostname.
+      UPLOADKY_SHARE_BASE: ${UPLOADKY_SHARE_BASE:-}
+
+      # Optional: pin a specific HTTP relay for the Pubky Ring handshake.
+      UPLOADKY_HTTP_RELAY: ${UPLOADKY_HTTP_RELAY:-}
+
+      # Local testnet instead of the public network.
+      UPLOADKY_TESTNET: ${UPLOADKY_TESTNET:-false}
+      UPLOADKY_TESTNET_HOST: ${UPLOADKY_TESTNET_HOST:-}
+
+    # Published on loopback only: a reverse proxy fronts it.
+    ports:
+      - "127.0.0.1:${UPLOADKY_PORT:-8080}:8080"
