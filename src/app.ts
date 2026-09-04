@@ -9,6 +9,15 @@ import {
   type RingSigninState,
 } from './auth-ui'
 import { setKeyFieldSeed, startKeyField } from './background'
+import {
+  downloadViewHtml,
+  fetchShareMeta,
+  parseShareUrl,
+  saveFile,
+  shareExists,
+  type DownloadState,
+  type ShareTarget,
+} from './download'
 import { flashCopied, updateProgress, updateUploadsList, uploadCardHtml } from './files-ui'
 import { copyTextToClipboard, escapeHtml, formatError, statusMessage } from './html'
 import { brandHtml, pitchHtml } from './landing'
@@ -43,6 +52,8 @@ interface State {
   ringSignin: RingSigninState
   session?: Session
   sharing?: Upload
+  /** Set when the URL is a share link: the app renders a download page instead. */
+  share?: { target: ShareTarget; state: DownloadState }
 }
 
 const state: State = { uploads: [], ringSignin: {} }
@@ -60,8 +71,36 @@ export function start(root: HTMLElement) {
   app.addEventListener('drop', handleDrop)
 
   startKeyField()
+
+  // A share link is a whole different page. Decide before anything else, so a
+  // visitor following a link never sees a sign-in form flash first.
+  const target = parseShareUrl(window.location.pathname)
+  if (target) {
+    state.share = { target, state: { status: 'loading' } }
+    setKeyFieldSeed(target.ownerKey)
+    mount()
+    void loadShare(target)
+    return
+  }
+
   mount()
   void init()
+}
+
+/**
+ * Resolve a share link with no session at all. `/pub/` is world-readable, so a
+ * plain fetch is enough — that is the storage model doing its job.
+ */
+async function loadShare(target: ShareTarget) {
+  const [meta, exists] = await Promise.all([fetchShareMeta(target), shareExists(target)])
+
+  // A descriptor may be missing while the bytes are fine, so existence of the
+  // FILE is what decides, not the metadata.
+  state.share = {
+    target,
+    state: exists ? { status: 'ready', meta } : { status: 'missing' },
+  }
+  mount()
 }
 
 async function init() {
@@ -76,6 +115,11 @@ async function init() {
 // ------------------------------------------------------------------ render
 
 function mount() {
+  if (state.share) {
+    app.innerHTML = downloadViewHtml(state.share.target, state.share.state)
+    return
+  }
+
   const session = state.session
 
   app.innerHTML = session
@@ -88,11 +132,11 @@ function mount() {
        </div>
        ${shareSheetHtml()}`
     : `<div class="shell">
-         <div>
+         ${pitchHtml()}
+         <div class="signin">
            <div id="status">${statusHtml()}</div>
            ${authViewHtml(state.ringSignin, getAuthMode(), state.busy)}
          </div>
-         ${pitchHtml()}
        </div>`
 
   void renderRingSigninQr(state.ringSignin)
@@ -225,6 +269,11 @@ function handleClick(event: MouseEvent) {
     return
   }
 
+  if (button.id === 'download-file') {
+    void handleDownload(button)
+    return
+  }
+
   switch (button.id) {
     case 'refresh-ring-signin':
       void refreshRingSignin()
@@ -350,6 +399,30 @@ async function handleDeleteUpload(id: string) {
     await refreshUploads()
     updateUploadsList(state.uploads, owner(session), state.busy)
   })
+}
+
+async function handleDownload(button: HTMLButtonElement) {
+  const url = button.dataset.url
+  const name = button.dataset.name
+  if (!url || !name) return
+
+  const label = button.textContent
+  button.disabled = true
+  button.textContent = 'Downloading…'
+
+  try {
+    await saveFile(url, name)
+    button.textContent = 'Saved'
+  } catch (error) {
+    button.textContent = 'Download failed'
+    console.error('Download failed', error)
+  } finally {
+    window.setTimeout(() => {
+      if (!button.isConnected) return
+      button.disabled = false
+      button.textContent = label
+    }, 2000)
+  }
 }
 
 async function refreshUploads() {

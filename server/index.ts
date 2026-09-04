@@ -76,12 +76,19 @@ const server = Bun.serve({
       })
     }
 
-    const redirect = shareRedirect(path)
-    if (redirect) {
-      return new Response(null, {
-        status: 302,
-        headers: { location: redirect, 'cache-control': 'public, max-age=60' },
-      })
+    // `/raw/<key>/<id>` still redirects straight to the bytes — useful for
+    // embedding, and it works without JavaScript. The plain `/<key>/<id>` form
+    // now falls through to the app, which shows what the file IS before
+    // downloading anything.
+    if (path.startsWith('/raw/')) {
+      const redirect = shareRedirect(path.slice(4))
+      if (redirect) {
+        return new Response(null, {
+          status: 302,
+          headers: { location: redirect, 'cache-control': 'public, max-age=60' },
+        })
+      }
+      return new Response('Not found', { status: 404 })
     }
 
     return serveStatic(path)

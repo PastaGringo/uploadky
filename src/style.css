@@ -134,6 +134,15 @@ body::after {
   justify-content: center;
 }
 
+/* Desktop only: the sign-in card sits in the left column. In the DOM the pitch
+   comes FIRST, so a phone reads the brand and the headline before meeting a QR
+   code — a visitor landing on mobile otherwise sees a barcode and no idea what
+   the site is. */
+@media (min-width: 941px) {
+  .shell > .signin { order: 1; }
+  .shell > .pitch { order: 2; }
+}
+
 @media (max-width: 940px) {
   .shell,
   .shell.solo {
@@ -315,10 +324,28 @@ body::after {
   font-size: var(--t-small);
 }
 
+.pitch-foot {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
 .pitch-foot a {
+  display: inline-flex;
+  align-items: center;
   color: var(--on-dark);
-  text-decoration-color: var(--amber);
-  text-underline-offset: 3px;
+  text-decoration: none;
+  opacity: 0.85;
+  transition: opacity 140ms ease;
+}
+
+.pitch-foot a:hover {
+  opacity: 1;
+}
+
+.pubky-mark {
+  display: block;
+  width: auto;
 }
 
 /* -------------------------------------------------------------- controls */
@@ -787,5 +814,116 @@ dialog.sheet::backdrop {
     animation-duration: 0.001ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.001ms !important;
+  }
+}
+
+
+/* ------------------------------------------------------- download page */
+
+.download-card {
+  display: grid;
+  gap: 1.1rem;
+}
+
+.download-head {
+  display: grid;
+  grid-template-columns: 2.9rem minmax(0, 1fr);
+  align-items: center;
+  gap: 0.85rem;
+}
+
+.download-kind {
+  display: grid;
+  place-items: center;
+  width: 2.9rem;
+  height: 2.9rem;
+  border-radius: var(--r-md);
+  background: rgba(20, 33, 31, 0.06);
+  color: var(--paper-mute);
+}
+
+.download-title {
+  min-width: 0;
+}
+
+.download-title strong {
+  display: block;
+  overflow: hidden;
+  font-size: var(--t-lead);
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.btn.block {
+  width: 100%;
+  padding: 0.8rem 1rem;
+}
+
+.download-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.45rem;
+  margin: 0;
+  color: var(--paper-mute);
+  font-size: var(--t-small);
+}
+
+.download-note svg {
+  flex: none;
+  margin-top: 0.2rem;
+}
+
+.download-note a {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  color: var(--paper-ink);
+  text-decoration-color: var(--amber);
+  text-underline-offset: 3px;
+}
+
+.download-empty {
+  display: grid;
+  justify-items: center;
+  gap: 0.6rem;
+  padding: 1.6rem 0;
+  text-align: center;
+}
+
+.download-empty h2 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: var(--t-lead);
+  font-weight: 700;
+}
+
+.download-empty p {
+  max-width: 34ch;
+  margin: 0;
+}
+
+.download-foot {
+  margin: 1.1rem 0 0;
+  color: var(--on-dark-mute);
+  font-size: var(--t-small);
+  text-align: center;
+}
+
+@media (max-width: 460px) {
+  /* Side by side, "Open Pubky Ring" wraps onto two lines at this width. */
+  .ring-actions {
+    grid-template-columns: 1fr;
+  }
+
+  .qr-frame {
+    width: min(100%, 236px);
+    height: auto;
+    aspect-ratio: 1;
+  }
+
+  .ring-qr {
+    width: 100%;
+    height: auto;
   }
 }

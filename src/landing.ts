@@ -1,4 +1,5 @@
 import { iconExit, iconEye, iconKey, iconLock } from './icons'
+import { pubkyWordmark } from './pubky-mark'
 
 /**
  * The pitch, shown beside the sign-in card. Signed out, this page IS the
@@ -66,7 +67,10 @@ export function pitchHtml() {
       </ul>
 
       <p class="pitch-foot">
-        Built on the <a href="https://pubky.org" target="_blank" rel="noopener">Pubky</a> protocol
+        <span>Built on</span>
+        <a href="https://pubky.org" target="_blank" rel="noopener" aria-label="Pubky">
+          ${pubkyWordmark()}
+        </a>
       </p>
     </section>
   `
