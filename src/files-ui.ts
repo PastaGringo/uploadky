@@ -3,6 +3,7 @@ import { disabledAttr, escapeHtml, formatDate } from './html'
 import {
   iconCheck,
   iconCopy,
+  iconExit,
   iconExternal,
   iconForType,
   iconShare,
@@ -68,9 +69,8 @@ function userBarHtml(owner: string, busy?: string) {
   return `
     <div class="user-bar">
       <p class="pubky-id" title="${escapeHtml(owner)}">${escapeHtml(owner)}</p>
-      <button id="sign-out" type="button" class="btn ghost" ${disabledAttr(Boolean(busy))}>
-        Sign out
-      </button>
+      <button id="sign-out" type="button" class="btn icon" title="Sign out"
+              aria-label="Sign out" ${disabledAttr(Boolean(busy))}>${iconExit(16)}</button>
     </div>
   `
 }
