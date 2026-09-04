@@ -32,3 +32,6 @@ dist-ssr
 # Local env
 .env
 .env.local
+
+# Deployment-specific overrides (network attachment, etc.)
+compose.override.yaml
