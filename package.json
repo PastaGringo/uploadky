@@ -10,7 +10,8 @@
     "audit": "npm audit --audit-level=moderate",
     "dev": "vite",
     "build": "tsc && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test": "bun test server/preview.test.ts"
   },
   "devDependencies": {
     "@types/node": "^26.4.1",

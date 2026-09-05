@@ -71,7 +71,14 @@ https://<your instance>/<user-key>/<file-id>
 This opens a **page** showing the file's name, size and date, with a download
 button — not the raw bytes. A visitor sees what they are about to get.
 
-`\/raw/<user-key>/<file-id>` still 302-redirects straight to the bytes, for
+Paste that URL in Slack, X, Discord, iMessage or a search crawler and the
+**HTML** carries Open Graph / Twitter tags in the first bytes (filename, size,
+date). `/raw/<user-key>/<file-id>` is the bytes redirect — it is **not** the
+card URL. The branded social image is `/og.png` (1200×630). Relative tags in
+`index.html` are rewritten to absolute URLs from the request host; no public
+domain is baked into the image.
+
+`/raw/<user-key>/<file-id>` still 302-redirects straight to the bytes, for
 embedding and for clients without JavaScript.
 
 Either way the server carries **no file bytes**: the browser fetches from the
@@ -153,6 +160,7 @@ itself.
 | Route | Purpose |
 |---|---|
 | `GET /raw/<key>/<id>` | **302** to the file on the homeserver |
+| `GET /<key>/<id>` | Built app with file-specific preview tags |
 | everything else | The built app |
 
 > **Security note.** The key is validated against the 52-character z-base32
