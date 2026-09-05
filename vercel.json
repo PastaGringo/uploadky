@@ -8,7 +8,15 @@
       "destination": "/api/raw"
     },
     {
-      "source": "/((?!api/|assets/).*)",
+      "source": "/",
+      "destination": "/api/preview"
+    },
+    {
+      "source": "/:key/:id",
+      "destination": "/api/preview?key=:key&id=:id"
+    },
+    {
+      "source": "/((?!api/|assets/|index\\.html).*)",
       "destination": "/index.html"
     }
   ]

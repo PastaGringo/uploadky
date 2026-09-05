@@ -100,6 +100,13 @@ async function loadShare(target: ShareTarget) {
     target,
     state: exists ? { status: 'ready', meta } : { status: 'missing' },
   }
+
+  if (exists && meta?.name) {
+    document.title = meta.name
+  } else if (!exists) {
+    document.title = 'Nothing here — uploadky'
+  }
+
   mount()
 }
 
