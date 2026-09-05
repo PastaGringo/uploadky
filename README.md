@@ -6,7 +6,7 @@ Drop a file, get a link, share it. The difference: the file never touches our
 servers. It goes straight to **your own [Pubky](https://pubky.org) homeserver**,
 and the link points there. We hold no copy, and we can't.
 
-Live at **[uploadky.delvops.fr](https://uploadky.delvops.fr)** · MIT licensed
+MIT licensed
 
 <!-- Screenshots: landing page, download page, mobile. -->
 
