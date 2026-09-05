@@ -25,6 +25,8 @@ import {
   getAuthMode,
   isRingAuthCanceled,
   isRingAuthExpired,
+  forgetSession,
+  isMissingSessionError,
   restoreSavedSession,
   saveSession,
   setAuthMode,
@@ -549,8 +551,27 @@ async function activateSession(session: Session, notice: string) {
   state.ringSignin = {}
   state.session = session
   setNotice(notice)
-  await refreshUploads()
+
+  // The first authenticated call is also the proof that the credential
+  // survived. Showing a signed-in screen that cannot read anything, and a raw
+  // "401 Unauthorized" over it, tells the user nothing they can act on.
+  try {
+    await refreshUploads()
+  } catch (error) {
+    if (!isMissingSessionError(error)) throw error
+
+    state.session = undefined
+    state.uploads = []
+    await forgetSession()
+    setError(new Error(COOKIE_BLOCKED_MESSAGE))
+    await refreshRingSignin(true)
+  }
 }
+
+const COOKIE_BLOCKED_MESSAGE =
+  'Your browser blocked the homeserver session cookie — it is third-party ' +
+  'here, and Safari blocks those by default. Try Chrome or Firefox, or turn ' +
+  'off Prevent Cross-Site Tracking.'
 
 function cancelRingSignin() {
   const flow = state.ringAuthFlow

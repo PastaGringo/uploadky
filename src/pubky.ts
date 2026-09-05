@@ -228,6 +228,19 @@ function diagnose(reason: string, error?: unknown) {
   else console.info(`[uploadky] session: ${reason}`, error)
 }
 
+/**
+ * Drop the local session without calling the server.
+ *
+ * `signOut` needs a working credential to revoke the session remotely. When
+ * the credential never arrived there is nothing to revoke and the call would
+ * only fail, so this clears the local state and stops there.
+ */
+export async function forgetSession() {
+  const savedId = localStorage.getItem(SESSION_KEY)
+  localStorage.removeItem(COOKIE_SESSION_KEY)
+  await forgetSavedSession(savedId)
+}
+
 export async function signOut(session: Session) {
   const savedId = localStorage.getItem(SESSION_KEY)
   localStorage.removeItem(COOKIE_SESSION_KEY)
@@ -335,6 +348,20 @@ function isNotFoundError(error: unknown) {
 function isUnauthorizedError(error: unknown) {
   const status = errorStatusCode(error)
   return status === 401 || status === 403 || isErrorNamed(error, 'AuthenticationError')
+}
+
+/**
+ * The homeserver saw no credential at all — not a permission problem.
+ *
+ * In a browser this means one thing: the session cookie never made it back.
+ * uploadky and the homeserver sit on different registrable domains, so that
+ * cookie is third-party. Safari blocks those outright and Chrome is
+ * restricting them. Nothing in this app can work around it while Pubky Ring
+ * only speaks the cookie protocol.
+ */
+export function isMissingSessionError(error: unknown) {
+  if (errorStatusCode(error) === 401) return true
+  return /no authenticated session/i.test(errorText(error))
 }
 
 function isErrorNamed(error: unknown, name: string) {
