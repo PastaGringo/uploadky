@@ -6,6 +6,23 @@ bundle); this file is for the rest.
 
 ## To test
 
+### Share on pubky.app, after the id fix — commit `1f17c56`, 2026-09-05
+
+The write always worked; the id was malformed, so the indexer dropped the
+post. Encoding is now covered by tests, but nothing proves end to end that a
+post appears in the feed.
+
+- [ ] **Where** — https://uploadky.vercel.app/, signed in
+- [ ] **Step** — press the share icon on a file, then Post
+- [ ] **Expect** — the post shows up on your pubky.app profile within a minute
+- [ ] **Note** — earlier attempts left two invisible posts on the homeserver under `/pub/pubky.app/posts/001JTP…`; they decode to 1998 and will never be indexed. Harmless, deletable by hand.
+
+### Preview cards (PR #1) — commit `1f17c56`, 2026-09-05
+
+- [ ] **Step** — paste a share link into Slack, X or Discord
+- [ ] **Expect** — a card with the filename, size and date; the image itself for a jpeg/png/gif/webp under 5 MB
+- [ ] **Step** — confirm `/raw/{key}/{id}` still 302s, and `/raw/evil.example.com/x` still 404s
+
 ### Session survives a reload — commit `0b1efb8`, 2026-09-05
 
 Never exercised: the code path needs a real Pubky Ring scan, and a browser
