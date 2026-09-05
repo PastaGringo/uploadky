@@ -9,13 +9,13 @@
  * Uses the Chrome already installed on the machine (`channel: 'chrome'`), so
  * nothing is downloaded.
  *
- *   bun run scripts/screenshots.mjs [base-url]
+ *   bun run scripts/screenshots.mjs [base-url]   # defaults to the dev server
  */
 
 import { mkdir } from 'node:fs/promises'
 import { chromium } from 'playwright-core'
 
-const BASE = (process.argv[2] || 'https://uploadky.delvops.fr').replace(/\/+$/, '')
+const BASE = (process.argv[2] || 'http://localhost:5173').replace(/\/+$/, '')
 const OUT = 'docs'
 
 const SHOTS = [
