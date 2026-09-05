@@ -1,27 +1,26 @@
-# uploadky — one image, configured entirely at runtime.
+# uploadky.
 #
-# No domain is baked in anywhere. Point a reverse proxy at this service and
-# set UPLOADKY_SHARE_BASE to whatever public origin it answers on; leave it
-# empty and share links simply point straight at the homeserver instead.
+# Settings are baked at BUILD time (Vite inlines VITE_*), so a change here needs
+# `up -d --build`, not just a restart. There is no runtime config endpoint: it
+# blocked the first render on a round-trip for values that never change.
+#
+# No domain is baked in anywhere. Point a reverse proxy at this service; leave
+# VITE_SHARE_BASE empty and the app uses its own origin, which is always right.
 
 services:
   uploadky:
-    build: .
+    build:
+      context: .
+      args:
+        VITE_HOMESERVER_HTTP_BASE: ${VITE_HOMESERVER_HTTP_BASE:-https://homeserver.pubky.app}
+        VITE_SHARE_BASE: ${VITE_SHARE_BASE:-}
+        VITE_PUBKY_TESTNET: ${VITE_PUBKY_TESTNET:-false}
+        VITE_PUBKY_TESTNET_HOST: ${VITE_PUBKY_TESTNET_HOST:-}
+        VITE_PUBKY_HTTP_RELAY: ${VITE_PUBKY_HTTP_RELAY:-}
     restart: unless-stopped
     environment:
-      # Where the files actually live. The only value the redirect needs.
-      UPLOADKY_HOMESERVER_HTTP_BASE: ${UPLOADKY_HOMESERVER_HTTP_BASE:-https://homeserver.pubky.app}
-
-      # Public origin of THIS service, used to build short share links.
-      # Empty = no short links. Set it to your own hostname.
-      UPLOADKY_SHARE_BASE: ${UPLOADKY_SHARE_BASE:-}
-
-      # Optional: pin a specific HTTP relay for the Pubky Ring handshake.
-      UPLOADKY_HTTP_RELAY: ${UPLOADKY_HTTP_RELAY:-}
-
-      # Local testnet instead of the public network.
-      UPLOADKY_TESTNET: ${UPLOADKY_TESTNET:-false}
-      UPLOADKY_TESTNET_HOST: ${UPLOADKY_TESTNET_HOST:-}
+      # The redirect runs server-side, so this one IS a runtime value.
+      UPLOADKY_HOMESERVER_HTTP_BASE: ${VITE_HOMESERVER_HTTP_BASE:-https://homeserver.pubky.app}
 
     # Published on loopback only: a reverse proxy fronts it.
     ports:

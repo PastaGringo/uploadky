@@ -1,24 +1,24 @@
 /**
- * Deployment settings, resolved at RUNTIME.
+ * Deployment settings.
  *
- * Vite inlines `VITE_*` at build time, so a value set in a container's
- * `environment:` would never reach an already-built bundle. To keep one image
- * configurable per environment, the container writes `/config.json` at start
- * from its env vars, and the app reads it before rendering.
+ * Resolved at BUILD time from `VITE_*`. There used to be a `/config.json`
+ * fetched before the first render, so one image could serve any environment —
+ * that mattered for a Docker deployment. It was dropped: it blocked first paint
+ * on a network round-trip to hand back values that never change, and on a
+ * platform where a redeploy is a push, changing an env var and redeploying is
+ * simpler than shipping a config endpoint.
  *
- * Order of precedence, lowest first:
- *   1. the defaults below
- *   2. build-time `VITE_*` (convenient in local dev via .env)
- *   3. `/config.json` (what a Docker deployment actually uses)
- *
- * A missing or malformed `/config.json` is not an error: local `bun run dev`
- * has no such file, and the app must still start.
+ * Only `homeserverHttpBase` really varies, and only for someone running their
+ * own homeserver.
  */
 
 export interface Settings {
   /** ICANN base URL of the homeserver, used to build public file URLs. */
   homeserverHttpBase: string
-  /** Optional short-link front (e.g. https://links.example.com). Empty disables it. */
+  /**
+   * Optional separate short-link domain. Empty means the app uses its own
+   * origin, which is always correct — it serves the share page itself.
+   */
   shareBase: string
   /** Local testnet instead of the public network. */
   isTestnet: boolean
@@ -26,69 +26,16 @@ export interface Settings {
   httpRelay?: string
 }
 
-const defaults: Settings = {
-  homeserverHttpBase: 'https://homeserver.pubky.app',
-  shareBase: '',
-  isTestnet: false,
-  testnetHost: undefined,
-  httpRelay: undefined,
-}
-
-const fromBuild: Partial<Settings> = {
-  homeserverHttpBase: import.meta.env.VITE_HOMESERVER_HTTP_BASE?.trim() || undefined,
-  shareBase: import.meta.env.VITE_SHARE_BASE?.trim() || undefined,
-  isTestnet: import.meta.env.VITE_PUBKY_TESTNET === 'true' ? true : undefined,
+const resolved: Settings = {
+  homeserverHttpBase: (
+    import.meta.env.VITE_HOMESERVER_HTTP_BASE?.trim() || 'https://homeserver.pubky.app'
+  ).replace(/\/+$/, ''),
+  shareBase: (import.meta.env.VITE_SHARE_BASE?.trim() || '').replace(/\/+$/, ''),
+  isTestnet: import.meta.env.VITE_PUBKY_TESTNET === 'true',
   testnetHost: import.meta.env.VITE_PUBKY_TESTNET_HOST?.trim() || undefined,
   httpRelay: import.meta.env.VITE_PUBKY_HTTP_RELAY?.trim() || undefined,
 }
 
-let current: Settings = { ...defaults, ...compact(fromBuild) }
-
 export function settings(): Settings {
-  return current
-}
-
-/**
- * Fetch `/config.json` and layer it on top. Call once, before rendering.
- *
- * Never throws: a deployment without the file, or with a broken one, falls back
- * to build-time values rather than showing a blank page.
- */
-export async function loadRuntimeSettings(): Promise<void> {
-  try {
-    const response = await fetch('/config.json', { cache: 'no-store' })
-    if (!response.ok) return
-
-    const raw: unknown = await response.json()
-    if (!isRecord(raw)) return
-
-    current = { ...current, ...compact(readSettings(raw)) }
-  } catch {
-    // No file in dev, or offline. Build-time values stand.
-  }
-}
-
-function readSettings(raw: Record<string, unknown>): Partial<Settings> {
-  return {
-    homeserverHttpBase: trimmed(raw.homeserverHttpBase),
-    shareBase: typeof raw.shareBase === 'string' ? raw.shareBase.trim() : undefined,
-    isTestnet: typeof raw.isTestnet === 'boolean' ? raw.isTestnet : undefined,
-    testnetHost: trimmed(raw.testnetHost),
-    httpRelay: trimmed(raw.httpRelay),
-  }
-}
-
-function trimmed(value: unknown) {
-  return typeof value === 'string' && value.trim() ? value.trim() : undefined
-}
-
-/** Drop undefined keys so they do not overwrite a lower-precedence value. */
-function compact<T extends object>(value: T): Partial<T> {
-  return Object.fromEntries(
-    Object.entries(value).filter(([, v]) => v !== undefined),
-  ) as Partial<T>
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null
+  return resolved
 }

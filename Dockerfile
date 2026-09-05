@@ -6,8 +6,14 @@ COPY package.json bun.lock* ./
 RUN bun install --frozen-lockfile
 
 COPY . .
-# No VITE_* here on purpose: every deployment-dependent value is read at
-# RUNTIME from /config.json, so one image serves every environment.
+
+# Settings are baked at build time. There is no runtime config endpoint: it
+# blocked first paint on a round-trip for values that never change.
+ARG VITE_HOMESERVER_HTTP_BASE
+ARG VITE_SHARE_BASE
+ARG VITE_PUBKY_TESTNET
+ARG VITE_PUBKY_TESTNET_HOST
+ARG VITE_PUBKY_HTTP_RELAY
 RUN bun run build
 
 # --- runtime -------------------------------------------------------------

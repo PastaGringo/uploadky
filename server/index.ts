@@ -1,9 +1,8 @@
 /**
- * uploadky server — three jobs, no framework.
+ * uploadky server — two jobs, no framework.
  *
- *   GET /config.json          runtime settings, built from env vars
- *   GET /<user-key>/<file-id> 302 to the file on the user's homeserver
- *   everything else           the built SPA from dist/
+ *   GET /raw/<user-key>/<file-id> 302 to the file on the user's homeserver
+ *   everything else               the built SPA from dist/
  *
  * NOTHING here knows its own domain. A 302 only needs the destination, so the
  * same image runs behind any hostname — no rebuild, no baked-in origin.
@@ -28,12 +27,6 @@ const HOMESERVER = (process.env.UPLOADKY_HOMESERVER_HTTP_BASE || 'https://homese
  * pretty share links. Empty means "no short links" and the app falls back to
  * homeserver URLs — which always work. Never defaulted to a real domain.
  */
-const SHARE_BASE = (process.env.UPLOADKY_SHARE_BASE || '').trim().replace(/\/+$/, '')
-
-const HTTP_RELAY = (process.env.UPLOADKY_HTTP_RELAY || '').trim()
-const TESTNET = process.env.UPLOADKY_TESTNET === 'true'
-const TESTNET_HOST = (process.env.UPLOADKY_TESTNET_HOST || '').trim()
-
 /** Must match the app: /pub/<app id>/files/ */
 const FILES_PREFIX = '/pub/uploadky.app/files/'
 
@@ -46,18 +39,6 @@ const PUBKY_KEY = /^[ybndrfg8ejkmcpqxot1uwisza345h769]{52}$/
 /** Ids we generate: base36 stamp, dash, 8 hex, optional extension. */
 const FILE_ID = /^[a-z0-9]{1,12}-[a-z0-9]{8}(\.[a-z0-9]{1,8})?$/i
 
-const CONFIG = JSON.stringify(
-  {
-    homeserverHttpBase: HOMESERVER,
-    shareBase: SHARE_BASE,
-    isTestnet: TESTNET,
-    ...(TESTNET_HOST ? { testnetHost: TESTNET_HOST } : {}),
-    ...(HTTP_RELAY ? { httpRelay: HTTP_RELAY } : {}),
-  },
-  null,
-  2,
-)
-
 const server = Bun.serve({
   port: PORT,
   async fetch(request) {
@@ -66,14 +47,6 @@ const server = Bun.serve({
 
     if (path === '/healthz') {
       return new Response('ok', { headers: { 'content-type': 'text/plain' } })
-    }
-
-    // Runtime settings. `no-store` so a redeploy with new env takes effect on
-    // the next load rather than whenever a cache happens to expire.
-    if (path === '/config.json') {
-      return new Response(CONFIG, {
-        headers: { 'content-type': 'application/json', 'cache-control': 'no-store' },
-      })
     }
 
     // `/raw/<key>/<id>` still redirects straight to the bytes — useful for
@@ -135,4 +108,3 @@ async function serveStatic(path: string): Promise<Response> {
 
 console.log(`uploadky listening on :${server.port}`)
 console.log(`  homeserver  ${HOMESERVER}`)
-console.log(`  share base  ${SHARE_BASE || '(none — links point at the homeserver)'}`)

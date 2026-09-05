@@ -3,8 +3,13 @@
   "buildCommand": "bun run build",
   "outputDirectory": "dist",
   "rewrites": [
-    { "source": "/config.json", "destination": "/api/config" },
-    { "source": "/raw/:key/:id", "destination": "/api/raw" },
-    { "source": "/((?!api/|assets/).*)", "destination": "/index.html" }
+    {
+      "source": "/raw/:key/:id",
+      "destination": "/api/raw"
+    },
+    {
+      "source": "/((?!api/|assets/).*)",
+      "destination": "/index.html"
+    }
   ]
 }

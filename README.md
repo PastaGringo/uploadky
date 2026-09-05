@@ -112,26 +112,29 @@ the session lives for the page's lifetime, and the app says so.
 
 ## Deploying
 
-One image, configured entirely at **runtime**. Vite inlines `VITE_*` at build
-time, so a value set in a container's `environment:` would never reach an
-already-built bundle. The server therefore writes `/config.json` from its env
-vars, and the app reads it before rendering.
+Settings are baked at build time from `VITE_*`. There was a `/config.json`
+fetched before the first render, so one image could serve any environment; it
+was dropped, because it blocked first paint on a round-trip for values that
+never change.
+
+Only `VITE_HOMESERVER_HTTP_BASE` really varies, and only for someone running
+their own homeserver.
 
 ```bash
 cp .env.example .env   # then adjust
 docker compose up -d --build
 ```
 
-No domain is baked in anywhere. A configuration change needs a `restart`, never
-a rebuild.
+**No domain is baked in.** Leave `VITE_SHARE_BASE` empty and the app uses its
+own origin for share links, which is always correct — it serves the share page
+itself.
 
 ### The server
 
-`server/index.ts` does three things and no more:
+`server/index.ts` does two things and no more:
 
 | Route | Purpose |
 |---|---|
-| `GET /config.json` | Settings, from the environment |
 | `GET /raw/<key>/<id>` | **302** to the file on the homeserver |
 | everything else | The built app |
 
