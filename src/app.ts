@@ -488,7 +488,7 @@ async function handleRingApproval(flow: RingAuthFlow, token: symbol) {
         session,
         persisted
           ? 'Signed in.'
-          : 'Signed in. On the legacy protocol this session ends when you reload.',
+          : 'Signed in. This browser will not keep the session, so a reload signs you out.',
       )
     })
   } catch (error) {

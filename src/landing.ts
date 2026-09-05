@@ -1,4 +1,4 @@
-import { iconExit, iconEye, iconKey, iconLock } from './icons'
+import { iconExit, iconExternal, iconEye, iconKey, iconLock } from './icons'
 import { pubkyWordmark } from './pubky-mark'
 
 /**
@@ -70,6 +70,10 @@ export function pitchHtml() {
         <span>Built on</span>
         <a href="https://pubky.org" target="_blank" rel="noopener" aria-label="Pubky">
           ${pubkyWordmark()}
+        </a>
+        <span class="pitch-foot-sep" aria-hidden="true">·</span>
+        <a class="pitch-foot-link" href="https://pubkyring.app/" target="_blank" rel="noopener">
+          Get Pubky Ring ${iconExternal(12)}
         </a>
       </p>
     </section>

@@ -1,9 +1,11 @@
 import { AuthFlowKind, Keypair, Pubky, PublicKey } from '@synonymdev/pubky'
 import type { AuthFlow, GrantAuthFlow, Session } from '@synonymdev/pubky'
-import { APP_CAPABILITIES, APP_CLIENT_ID } from './config'
+import type { Path } from '@synonymdev/pubky'
+import { APP_CAPABILITIES, APP_CLIENT_ID, META_DIR } from './config'
 import { settings } from './settings'
 
 const SESSION_KEY = `${APP_CLIENT_ID}:session`
+const COOKIE_SESSION_KEY = `${APP_CLIENT_ID}:cookie-session`
 const RING_AUTH_CANCELED_ERROR_NAME = 'RingAuthCanceled'
 const RING_AUTH_EXPIRED_ERROR_NAME = 'RingAuthExpired'
 const CLOSED_SIGNUP_MESSAGE =
@@ -103,26 +105,49 @@ export async function startRingAuthFlow(): Promise<RingAuthFlow> {
 /**
  * Persist the session so a page reload does not require scanning again.
  *
- * `BrowserSessionStore` accepts **grant-backed sessions only** — it refuses a
- * cookie session with "Only grant-backed sessions can be saved in
- * BrowserSessionStore." That is not a bug to work around: the grant model keeps
- * the delegated key non-extractable in the browser, which a cookie session
- * cannot offer. The alternative would be writing `session.export()` — a bearer
- * secret — into localStorage, where any XSS could read it.
+ * Two mechanisms, because the two auth models are not the same thing:
  *
- * So a cookie session simply is not persisted. It lives for the page's
- * lifetime, and the caller tells the user.
+ *   grant   `BrowserSessionStore` keeps the delegated key non-extractable in
+ *           IndexedDB. Nothing readable is written anywhere.
  *
- * @returns whether the session survives a reload.
+ *   cookie  The store refuses these ("Only grant-backed sessions can be saved
+ *           in BrowserSessionStore."). What actually survives a reload is the
+ *           browser's own cookie — HttpOnly, Secure, SameSite=None, Max-Age one
+ *           year, as issued by the homeserver. `session.export()` returns the
+ *           METADATA needed to rebuild the Session object around that cookie,
+ *           not the credential: `restoreSession()` documents that "the
+ *           HTTP-only cookie must still be present in the browser".
+ *
+ * Keeping that snapshot adds no exposure. Any script on this origin can already
+ * act as the user without it, since the cookie rides along on every homeserver
+ * request the page makes. (`exportLocalSecret()` is a different method and DOES
+ * hand back credential material — it is deliberately never called here.)
+ *
+ * The catch is that the cookie is third-party from this origin. `SameSite=None`
+ * permits it, but Safari blocks third-party cookies outright and Chrome is
+ * restricting them. On pubky.app the same cookie is first-party — `pubky.app`
+ * and `homeserver.pubky.app` share a registrable domain — which is why sessions
+ * always stick there and only usually stick here. A restore that fails is
+ * treated as a normal signed-out start.
+ *
+ * @returns whether the session is expected to survive a reload.
  */
 export async function saveSession(session: Session): Promise<boolean> {
   try {
     const stored = await pubkyClient().browserSessionStore.save(session)
     localStorage.setItem(SESSION_KEY, stored.id)
+    localStorage.removeItem(COOKIE_SESSION_KEY)
     return true
   } catch (error) {
-    if (isNotGrantBackedError(error)) return false
-    throw error
+    if (!isNotGrantBackedError(error)) throw error
+  }
+
+  try {
+    localStorage.setItem(COOKIE_SESSION_KEY, session.export())
+    return true
+  } catch {
+    // Private-mode quotas, or an SDK that declines to export this session.
+    return false
   }
 }
 
@@ -132,6 +157,10 @@ function isNotGrantBackedError(error: unknown) {
 }
 
 export async function restoreSavedSession() {
+  return (await restoreGrantSession()) ?? (await restoreCookieSession())
+}
+
+async function restoreGrantSession() {
   const savedId = localStorage.getItem(SESSION_KEY)
   if (!savedId) return undefined
 
@@ -147,8 +176,31 @@ export async function restoreSavedSession() {
   }
 }
 
+async function restoreCookieSession() {
+  const snapshot = localStorage.getItem(COOKIE_SESSION_KEY)
+  if (!snapshot) return undefined
+
+  try {
+    const session = await pubkyClient().restoreSession(snapshot)
+
+    // Rebuilding the object proves nothing on its own: the snapshot is
+    // metadata, so it restores fine even after the browser dropped the cookie.
+    // One authenticated read settles it, and does it before the UI says
+    // "Welcome back" rather than after.
+    await session.storage.list(META_DIR as Path, null, false, 1, false)
+    return session
+  } catch (error) {
+    // A missing folder means a signed-in account that has uploaded nothing.
+    if (isNotFoundError(error)) return await pubkyClient().restoreSession(snapshot)
+
+    localStorage.removeItem(COOKIE_SESSION_KEY)
+    return undefined
+  }
+}
+
 export async function signOut(session: Session) {
   const savedId = localStorage.getItem(SESSION_KEY)
+  localStorage.removeItem(COOKIE_SESSION_KEY)
   await session.signout()
   await forgetSavedSession(savedId)
 }
@@ -244,6 +296,10 @@ function isInvalidSavedSessionError(error: unknown) {
     isErrorNamed(error, 'InvalidInput') ||
     isErrorNamed(error, 'ClientStateError')
   )
+}
+
+function isNotFoundError(error: unknown) {
+  return errorStatusCode(error) === 404
 }
 
 function isErrorNamed(error: unknown, name: string) {

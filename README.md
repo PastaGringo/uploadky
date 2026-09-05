@@ -8,7 +8,24 @@ and the link points there. We hold no copy, and we can't.
 
 MIT licensed
 
-<!-- Screenshots: landing page, download page, mobile. -->
+<table>
+  <tr>
+    <td width="50%"><img src="docs/landing.png" alt="Landing page with the Pubky Ring sign-in QR code"></td>
+    <td width="50%"><img src="docs/files.png" alt="Signed in: drop zone and the list of uploaded files"></td>
+  </tr>
+  <tr>
+    <td><em>Sign in by scanning with Pubky Ring. The app asks for two folders and nothing else.</em></td>
+    <td><em>Your files, on your homeserver. Copy the link, open it, share it, delete it.</em></td>
+  </tr>
+  <tr>
+    <td><img src="docs/download.png" alt="Download page showing the file name, size and a Download button"></td>
+    <td><img src="docs/share.png" alt="Dialog composing a post to publish on pubky.app"></td>
+  </tr>
+  <tr>
+    <td><em>What the recipient sees. The bytes come from the sender's homeserver, not from us.</em></td>
+    <td><em>Sharing writes a post to your own homeserver; pubky.app picks it up from there.</em></td>
+  </tr>
+</table>
 
 ---
 

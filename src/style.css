@@ -343,6 +343,19 @@ body::after {
   opacity: 1;
 }
 
+.pitch-foot-sep {
+  opacity: 0.4;
+}
+
+/* The wordmark is an image and carries no underline; this one is a sentence,
+   so it gets the same amber underline as every other text link in the app. */
+.pitch-foot a.pitch-foot-link {
+  gap: 0.3rem;
+  text-decoration: underline;
+  text-decoration-color: var(--amber);
+  text-underline-offset: 3px;
+}
+
 .pubky-mark {
   display: block;
   width: auto;
