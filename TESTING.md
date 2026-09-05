@@ -6,6 +6,27 @@ bundle); this file is for the rest.
 
 ## To test
 
+### Session survives a reload — commit `0b1efb8`, 2026-09-05
+
+Never exercised: the code path needs a real Pubky Ring scan, and a browser
+that keeps a third-party cookie.
+
+- [ ] **Where** — https://uploadky.vercel.app/ in Chrome or Firefox
+- [ ] **Step** — sign in with Pubky Ring, then reload the page
+- [ ] **Expect** — the file list comes back without scanning again, banner reads "Welcome back."
+- [ ] **Step** — close the tab, reopen the site tomorrow
+- [ ] **Expect** — still signed in; the homeserver cookie lasts a year
+- [ ] **Where** — the same site in **Safari** (macOS or iPhone)
+- [ ] **Expect** — signing in works, but a reload signs you out. Safari blocks third-party cookies, and the homeserver is third-party from this origin. The banner should say so: "This browser will not keep the session…"
+- [ ] **Step** — sign out, then reload
+- [ ] **Expect** — the sign-in page, never a half-restored session
+
+### Pubky Ring link in the footer — commit `0b1efb8`, 2026-09-05
+
+- [ ] **Where** — bottom of the pitch, on the signed-out page
+- [ ] **Step** — click "Get Pubky Ring"
+- [ ] **Expect** — opens https://pubkyring.app/ in a new tab
+
 ### Share on pubky.app — never exercised
 
 Added 2026-09-05. This feature has **never written a real post**. The code path
