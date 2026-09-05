@@ -100,6 +100,9 @@ function uploadItem(upload: Upload, owner: string, busy?: string) {
         <button type="button" class="btn icon" data-copy-id="${escapeHtml(upload.id)}"
                 title="Copy link" aria-label="Copy link to ${escapeHtml(upload.name)}"
                 data-url="${escapeHtml(url)}" ${off}>${iconCopy()}</button>
+        <a class="btn icon" href="${escapeHtml(url)}" target="_blank" rel="noopener"
+           title="Open the share page" aria-label="Open the share page for ${escapeHtml(upload.name)}"
+           >${iconExternal(16)}</a>
         <button type="button" class="btn icon" data-share-id="${escapeHtml(upload.id)}"
                 title="Share on pubky.app" aria-label="Share ${escapeHtml(upload.name)} on pubky.app"
                 ${off}>${iconShare()}</button>

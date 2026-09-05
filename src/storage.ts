@@ -40,14 +40,19 @@ export function metaPath(id: string) {
  */
 export function shareUrl(ownerPublicKey: string, id: string) {
   const owner = ownerPublicKey.replace(/^pubky/, '')
-  const { shareBase } = settings()
 
-  // A short-link front, when configured, only redirects (302) to the URL
-  // below. It never proxies the file, so it carries no bytes and costs nothing
-  // to run — the browser fetches straight from the homeserver.
-  if (shareBase) return `${shareBase.replace(/\/+$/, '')}/${owner}/${id}`
+  // The app serving this page also serves the share page, so its own origin is
+  // always a valid front. `shareBase` only overrides it — for a separate
+  // short-link domain, say. Falling back to the raw homeserver URL instead
+  // would hand out a link that downloads immediately, with no page, no
+  // filename and no context.
+  const base = (settings().shareBase || selfOrigin()).replace(/\/+$/, '')
 
-  return directUrl(owner, id)
+  return `${base}/${owner}/${id}`
+}
+
+function selfOrigin() {
+  return typeof window === 'undefined' ? '' : window.location.origin
 }
 
 /** The homeserver URL a share link ultimately resolves to. */

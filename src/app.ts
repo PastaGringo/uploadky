@@ -238,6 +238,9 @@ function handleClick(event: MouseEvent) {
     return
   }
 
+  // Plain anchors (share page, direct link, repository) are the browser's job.
+  if (target.closest('a')) return
+
   if (target.closest('#dropzone') && !state.busy) {
     app.querySelector<HTMLInputElement>('#file-input')?.click()
     return
