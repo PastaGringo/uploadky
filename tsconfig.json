@@ -21,5 +21,9 @@
     "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true
   },
-  "include": ["src"]
+  "include": ["src"],
+
+  /* tsc guards what ships. Test files import `bun:test`, which only the Bun
+     runtime provides, so they are checked by running them: `bun test`. */
+  "exclude": ["src/**/*.test.ts"]
 }

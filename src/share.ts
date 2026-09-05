@@ -13,9 +13,7 @@ import { PUBKY_APP_POSTS_DIR } from './config'
  * Shape per pubky-app-specs `PubkyAppPost`:
  *   content     required, <= 2000 characters for kind "short"
  *   kind        "short"
- *   parent      null unless it is a reply
- *   embed       null
- *   attachments null, or a list of pubky:// URIs
+ *   parent, embed, attachments, lock   optional, and omitted entirely here
  */
 
 const MAX_SHORT_CONTENT = 2000
@@ -38,12 +36,11 @@ export async function shareOnPubkyApp(
   const postId = timestampId()
   const path = `${PUBKY_APP_POSTS_DIR}${postId}` as Path
 
+  // Optional fields are OMITTED, not sent as null. That is the shape genuine
+  // pubky.app posts have on the homeserver — checked against real ones.
   await session.storage.putJson(path, {
     content,
     kind: 'short',
-    parent: null,
-    embed: null,
-    attachments: null,
   })
 
   return { postId, path }
@@ -51,29 +48,53 @@ export async function shareOnPubkyApp(
 
 /**
  * Timestamp ID, per pubky-app-specs: Crockford base32 of the creation time in
- * MICROseconds, 13 characters, so ids sort chronologically as strings.
+ * MICROseconds — and specifically the base32 of its 8 BIG-ENDIAN BYTES, not an
+ * arithmetic base-32 conversion of the number.
  *
- * `Date.now()` only has millisecond resolution, so a counter fills the last
- * digits — two posts in the same millisecond still get distinct, ordered ids.
+ * The distinction is the whole bug this replaces. `validate_crockford_id`
+ * requires the 13 characters to decode to exactly 8 bytes, so the 64 bits are
+ * consumed from the top in groups of five and the last group is padded with a
+ * trailing zero bit. Dividing the integer by 32 repeatedly aligns the value at
+ * the other end and yields an id that is off by a factor of two — 13 valid
+ * characters that decode to the wrong instant. Nothing rejects the write: the
+ * homeserver stores any JSON. The post simply never appears, because the
+ * indexer discards it.
+ *
+ * Measured: real pubky.app posts decode to plausible dates under this
+ * encoding, and to nonsense under the arithmetic one.
  */
 const CROCKFORD = '0123456789ABCDEFGHJKMNPQRSTVWXYZ'
 let lastMicros = 0
 
 export function timestampId(): string {
   let micros = Date.now() * 1000
+  // Date.now() has millisecond resolution, so two posts in the same
+  // millisecond would collide. The counter keeps them distinct and ordered.
   if (micros <= lastMicros) micros = lastMicros + 1
   lastMicros = micros
 
-  let out = ''
+  const bytes = new Uint8Array(8)
   let value = BigInt(micros)
-  const base = BigInt(32)
-
-  while (value > 0n) {
-    out = CROCKFORD[Number(value % base)] + out
-    value /= base
+  for (let i = 7; i >= 0; i -= 1) {
+    bytes[i] = Number(value & 0xffn)
+    value >>= 8n
   }
 
-  return out.padStart(13, '0')
+  let bits = 0
+  let buffer = 0
+  let out = ''
+
+  for (const byte of bytes) {
+    buffer = (buffer << 8) | byte
+    bits += 8
+    while (bits >= 5) {
+      out += CROCKFORD[(buffer >>> (bits - 5)) & 31]
+      bits -= 5
+    }
+  }
+  if (bits > 0) out += CROCKFORD[(buffer << (5 - bits)) & 31]
+
+  return out
 }
 
 /** The default message offered in the share sheet. */
