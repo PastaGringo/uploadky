@@ -144,9 +144,11 @@ export async function saveSession(session: Session): Promise<boolean> {
 
   try {
     localStorage.setItem(COOKIE_SESSION_KEY, session.export())
+    diagnose('stored, this browser should keep you signed in')
     return true
-  } catch {
+  } catch (error) {
     // Private-mode quotas, or an SDK that declines to export this session.
+    diagnose('could not be stored', error)
     return false
   }
 }
@@ -178,24 +180,52 @@ async function restoreGrantSession() {
 
 async function restoreCookieSession() {
   const snapshot = localStorage.getItem(COOKIE_SESSION_KEY)
-  if (!snapshot) return undefined
-
-  try {
-    const session = await pubkyClient().restoreSession(snapshot)
-
-    // Rebuilding the object proves nothing on its own: the snapshot is
-    // metadata, so it restores fine even after the browser dropped the cookie.
-    // One authenticated read settles it, and does it before the UI says
-    // "Welcome back" rather than after.
-    await session.storage.list(META_DIR as Path, null, false, 1, false)
-    return session
-  } catch (error) {
-    // A missing folder means a signed-in account that has uploaded nothing.
-    if (isNotFoundError(error)) return await pubkyClient().restoreSession(snapshot)
-
-    localStorage.removeItem(COOKIE_SESSION_KEY)
+  if (!snapshot) {
+    diagnose('no stored session')
     return undefined
   }
+
+  let session: Session
+  try {
+    session = await pubkyClient().restoreSession(snapshot)
+  } catch (error) {
+    // The snapshot itself is unusable, and no later reload will change that.
+    localStorage.removeItem(COOKIE_SESSION_KEY)
+    diagnose('stored session rejected by the SDK', error)
+    return undefined
+  }
+
+  // Rebuilding the object proves nothing on its own: the snapshot is metadata,
+  // so it restores cleanly even after the browser dropped the cookie. One
+  // authenticated read settles it, before the UI says "Welcome back".
+  try {
+    await session.storage.list(META_DIR as Path, null, false, 1, true)
+    return session
+  } catch (error) {
+    // An account that has uploaded nothing has no folder yet. Still signed in.
+    if (isNotFoundError(error)) return session
+
+    if (isUnauthorizedError(error)) {
+      localStorage.removeItem(COOKIE_SESSION_KEY)
+      diagnose('the browser no longer holds the homeserver cookie', error)
+      return undefined
+    }
+
+    // Offline, CORS, a 5xx: none of these say anything about the session, so
+    // the snapshot is kept. Discarding it here was the original bug — one
+    // transient failure at page load signed the user out for good.
+    diagnose('session probe inconclusive, snapshot kept', error)
+    return session
+  }
+}
+
+/**
+ * A silent sign-out is the worst outcome: the user sees a QR code again and has
+ * nothing to go on. One console line names the step that failed.
+ */
+function diagnose(reason: string, error?: unknown) {
+  if (error === undefined) console.info(`[uploadky] session: ${reason}`)
+  else console.info(`[uploadky] session: ${reason}`, error)
 }
 
 export async function signOut(session: Session) {
@@ -300,6 +330,11 @@ function isInvalidSavedSessionError(error: unknown) {
 
 function isNotFoundError(error: unknown) {
   return errorStatusCode(error) === 404
+}
+
+function isUnauthorizedError(error: unknown) {
+  const status = errorStatusCode(error)
+  return status === 401 || status === 403 || isErrorNamed(error, 'AuthenticationError')
 }
 
 function isErrorNamed(error: unknown, name: string) {
