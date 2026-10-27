@@ -147,7 +147,7 @@ their own homeserver.
 It can also be set at **run** time, so one image serves any homeserver: set
 `UPLOADKY_HOMESERVER_HTTP_BASE` on the container, and the server writes it into
 the page (`window.__UPLOADKY_CONFIG__`, inline, no extra request). A prebuilt
-image is published on every push to `main`:
+image is published on every push to `master`:
 
 ```bash
 docker run -p 8080:8080 -e UPLOADKY_HOMESERVER_HTTP_BASE=https://your-homeserver.example   ghcr.io/pastagringo/uploadky:latest

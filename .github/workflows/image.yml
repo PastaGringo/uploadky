@@ -1,11 +1,11 @@
-# Publishes the Docker image to GitHub's registry on every push to main, so a
+# Publishes the Docker image to GitHub's registry on every push to master, so a
 # hosting panel can run uploadky without building it. The homeserver is a
 # runtime setting (UPLOADKY_HOMESERVER_HTTP_BASE): one image serves any of them.
 name: image
 
 on:
   push:
-    branches: [main]
+    branches: [master]
   workflow_dispatch:
 
 permissions:
