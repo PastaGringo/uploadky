@@ -144,6 +144,15 @@ never change.
 Only `VITE_HOMESERVER_HTTP_BASE` really varies, and only for someone running
 their own homeserver.
 
+It can also be set at **run** time, so one image serves any homeserver: set
+`UPLOADKY_HOMESERVER_HTTP_BASE` on the container, and the server writes it into
+the page (`window.__UPLOADKY_CONFIG__`, inline, no extra request). A prebuilt
+image is published on every push to `main`:
+
+```bash
+docker run -p 8080:8080 -e UPLOADKY_HOMESERVER_HTTP_BASE=https://your-homeserver.example   ghcr.io/pastagringo/uploadky:latest
+```
+
 ```bash
 cp .env.example .env   # then adjust
 docker compose up -d --build

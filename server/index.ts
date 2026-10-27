@@ -115,12 +115,27 @@ async function serveSpa(request: Request, path: string): Promise<Response> {
   const share = parseSharePath(path)
   const preview = share ? await sharePagePreview(origin, share) : landingPreview(origin)
 
-  return new Response(applyPreview(html, preview), {
+  return new Response(withRuntimeConfig(applyPreview(html, preview)), {
     headers: {
       'content-type': 'text/html; charset=utf-8',
       'cache-control': 'no-cache',
     },
   })
+}
+
+/**
+ * The homeserver is a RUNTIME setting when UPLOADKY_HOMESERVER_HTTP_BASE is
+ * set: one image then serves any homeserver (a hosting panel runs one copy per
+ * customer). It is written into the page itself, before the app's module, so
+ * the app reads it with no network round-trip. Unset, the page is untouched and
+ * the build-time VITE_* value applies, as before.
+ */
+const RUNTIME_CONFIG = process.env.UPLOADKY_HOMESERVER_HTTP_BASE?.trim()
+  ? `<script>window.__UPLOADKY_CONFIG__=${JSON.stringify({ homeserverHttpBase: HOMESERVER }).replace(/</g, '\\u003c')}</script>`
+  : ''
+
+function withRuntimeConfig(html: string): string {
+  return RUNTIME_CONFIG ? html.replace('<head>', `<head>${RUNTIME_CONFIG}`) : html
 }
 
 console.log(`uploadky listening on :${server.port}`)

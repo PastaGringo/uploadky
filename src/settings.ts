@@ -9,8 +9,18 @@
  * simpler than shipping a config endpoint.
  *
  * Only `homeserverHttpBase` really varies, and only for someone running their
- * own homeserver.
+ * own homeserver. A Docker deployment may set it at RUNTIME instead
+ * (UPLOADKY_HOMESERVER_HTTP_BASE): the server then writes it into the page as
+ * `window.__UPLOADKY_CONFIG__`, read here before the build-time value.
  */
+
+declare global {
+  interface Window {
+    __UPLOADKY_CONFIG__?: { homeserverHttpBase?: string }
+  }
+}
+
+const runtime = typeof window !== 'undefined' ? window.__UPLOADKY_CONFIG__ : undefined
 
 export interface Settings {
   /** ICANN base URL of the homeserver, used to build public file URLs. */
@@ -28,7 +38,9 @@ export interface Settings {
 
 const resolved: Settings = {
   homeserverHttpBase: (
-    import.meta.env.VITE_HOMESERVER_HTTP_BASE?.trim() || 'https://homeserver.pubky.app'
+    runtime?.homeserverHttpBase?.trim() ||
+    import.meta.env.VITE_HOMESERVER_HTTP_BASE?.trim() ||
+    'https://homeserver.pubky.app'
   ).replace(/\/+$/, ''),
   shareBase: (import.meta.env.VITE_SHARE_BASE?.trim() || '').replace(/\/+$/, ''),
   isTestnet: import.meta.env.VITE_PUBKY_TESTNET === 'true',
